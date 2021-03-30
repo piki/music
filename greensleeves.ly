@@ -25,7 +25,7 @@ tagline = ##f
 
   \break
   <a c>2 d4
-  <c e>4. f8 <e g>4
+  <c e>4. f8 <c e>4
   d2 b4
   g4. a8 b4
   <a c>4. b8 a4
