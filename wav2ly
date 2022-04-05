@@ -41,7 +41,7 @@ class Lilypond
 		EOF
 	end
 
-	def start_track(first, clef, tempo)
+	def start_track(first, partial, clef, tempo)
 		@last_out = 0
 		@clef = clef
 		@ottava = 0
@@ -54,9 +54,8 @@ class Lilypond
 				\\time #{@timesig}/4
 		EOF
 		if first
-			puts detab 3, <<-EOF
-				\\tempo 4=#{tempo}
-			EOF
+			puts "\t\\partial #{partial}" if partial
+			puts "\t\\tempo 4=#{tempo}"
 		end
 	end
 
@@ -286,6 +285,17 @@ notes = []
 beats = []
 note_count = Hash.new(0)
 
+while ARGV.first =~ /^--/
+	case ARGV.first
+		when '--partial'
+			ARGV.shift
+			partial = ARGV.first.to_i
+		else
+			$stderr.puts "Invalid argument: #{ARGV.first}"
+	end
+	ARGV.shift
+end
+
 title = ARGV.first.gsub(/^\d+\s*-\s*/, '').gsub(/\.\w{2,3}$/, '').gsub('_', ' ')
 ARGF.each_line do |line|
 	if line =~ /^([A-G]\#?\d) \s+ (\d+\.\d+) \s+ (\d+\.\d+) \s+ (\d+)$/x
@@ -331,7 +341,7 @@ ly = Lilypond.new(4, key)
 ly.put_header(title)
 tracks.each_with_index do |t, idx|
 	track_notes = notes.select{|n| n.track == t}
-	ly.start_track(idx == 0, pick_clef(track_notes), tempo)
+	ly.start_track(idx == 0, partial, pick_clef(track_notes), tempo)
 	track_notes.each do |n|
 		ly.put_note(n)
 	end
