@@ -303,7 +303,7 @@ end
 
 # if notes after the last beat, add a final beat
 if notes.map(&:start).max > beats.last
-	beats << (beats[-1] + (beats[-1]-beats[2]))
+	beats << (beats[-1] + (beats[-1]-beats[-2]))
 end
 
 notes.each do |n|
@@ -318,8 +318,8 @@ tracks.each_with_index do |t, idx|
 	track_notes.each do |n|
 		ly.put_note(n)
 	end
-	ly.flush(beats.size)
-	ly.flush_rests(beats.size)
+	ly.flush(beats.size-1)
+	ly.flush_rests(beats.size-1)
 	ly.end_track(idx == 0)
 end
 ly.put_footer
