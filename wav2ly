@@ -1,0 +1,325 @@
+#!/usr/bin/ruby
+
+QUANTIZE=16  # 16th notes
+
+def detab(n, s)
+	s.lines.map{|l| l[n..-1]}.join
+end
+
+class Note < Struct.new(:pitch, :start, :length, :track, :beat); end
+class Lilypond
+	OCTAVE = [ ",,,", ",,", ",", "", "'", "''", "'''", "''''", "'''''" ]
+	def initialize(timesig, key)
+		@note_buffer = []
+		@last_out = 0
+		@key = key
+		@timesig = timesig
+
+		@split_octave_up = pitch_for_note("C6")
+		@split_clef_up = pitch_for_note("E4")
+		@split_clef_down = pitch_for_note("A3")
+		@split_octave_down = pitch_for_note("C2")
+	end
+
+	def put_header(title)
+		puts detab 3, <<-EOF
+			\\version "2.20.0"
+			\\header{
+				title = "#{title}"
+			}
+			\\language english
+			tagline = ##f
+
+			\\new GrandStaff <<
+		EOF
+	end
+
+	def put_footer
+		puts detab 3, <<-EOF
+			>>
+		EOF
+	end
+
+	def start_track(first, clef, tempo)
+		@clef = clef
+		@ottava = 0
+		puts detab 3, <<-EOF
+			\\new Staff
+			{
+				\\clef #{clef}
+				\\key #{@key.downcase} \\major
+				\\numericTimeSignature
+				\\time #{@timesig}/4
+		EOF
+		if first
+			puts detab 3, <<-EOF
+				\\tempo 4=#{tempo}
+			EOF
+		end
+	end
+
+	def put_note(n)
+		$stderr.puts "#{n.pitch} on #{n.beat}"
+		if !@note_buffer.empty? && n.beat != @note_buffer.last.beat
+			flush(n.beat)
+		end
+		@note_buffer << n
+	end
+
+	# put a single line of rests, totalling `len` beats
+	# `len` must be <= `@timesig` (i.e., less than a measure)
+	def put_rests(len)
+		chunks = []
+		while len >= 4
+			chunks << "r1"
+			len -= 4
+		end
+		while len >= 2
+			chunks << "r2"
+			len -= 2
+		end
+		while len >= 1
+			chunks << "r4"
+			len -= 1
+		end
+		while len >= 0.5
+			chunks << "r8"
+			len -= 0.5
+		end
+		if len >= 0.25
+			chunks << "r16"
+		end
+		puts "\t#{chunks.join(' ')}"
+	end
+
+	def end_of_measure(t)
+		((t + @timesig)/@timesig).floor * @timesig
+	end
+
+	def flush_rests(now)
+		puts "\t\\ottava #0" if @note_buffer.empty? && @ottava != 0
+		if @last_out.to_i/@timesig != now.to_i/@timesig
+			eom = end_of_measure(@last_out)
+			put_rests(eom - @last_out)
+			@last_out = eom
+		end
+		while now - @last_out > @timesig
+			put_rests(@timesig)
+			@last_out += @timesig
+		end
+		put_rests(now - @last_out)
+		@last_out = now
+	end
+
+	def our_name(pitch)
+		letter = pitch[0].downcase
+		mod = case pitch[1]
+			when '#'
+				's'
+			when '-'
+				'f'
+		end
+		octave = OCTAVE[pitch[-1].to_i]
+		"#{letter}#{mod}#{octave}"
+	end
+
+	def flush(now)
+		prev = @note_buffer.last.beat
+		new_clef, new_ottava = get_octave(@note_buffer)
+
+		if new_ottava && new_ottava.abs < @ottava.abs
+			@ottava = new_ottava
+			puts "\t\\ottava ##{@ottava}"
+		end
+
+		flush_rests(prev) if prev > @last_out
+
+		if new_clef && @clef != new_clef
+			@clef = new_clef
+			puts "\t\\clef #{@clef}"
+		end
+
+		if new_ottava && new_ottava.abs > @ottava.abs
+			@ottava = new_ottava
+			puts "\t\\ottava ##{@ottava}"
+		end
+
+		$stderr.puts "flush #{prev}->#{now}, #{@note_buffer.size} notes"
+		end_of_note = [now, end_of_measure(prev), prev+1].min-prev
+		note_len = case end_of_note
+			when 0.25
+				"16"
+			when 0.5
+				"8"
+			when 0.75
+				"8."
+			else
+				"4"
+		end
+		if @note_buffer.size > 1
+			puts "\t<#{@note_buffer.map{|n| our_name(n.pitch)}.join(' ')}>#{note_len}"
+		else
+			puts "\t#{our_name(@note_buffer.first.pitch)}#{note_len}"
+		end
+		@last_out = prev + end_of_note
+		@note_buffer = []
+	end
+
+	def get_octave(notes)
+		pitches = notes.map{|n| pitch_for_note(n.pitch)}
+		new_ottava = 0
+		if pitches.all? {|p| p > @split_octave_up}
+			new_clef = "treble"
+			new_ottava = 1
+		elsif pitches.all? {|p| p > @split_clef_up}
+			new_clef = "treble"
+			new_ottava = 0
+		elsif pitches.all? {|p| p < @split_octave_down}
+			new_clef = "bass"
+			new_ottava = -1
+		elsif pitches.all? {|p| p < @split_clef_down}
+			new_clef = "bass"
+			new_ottava = 0
+		end
+
+		return new_clef, new_ottava
+	end
+
+	def end_track(first)
+		puts '	\bar "|."' unless first
+		puts detab 3, <<-EOF
+			}
+		EOF
+	end
+end
+
+PITCH_MAP={
+	'C'=>0,
+	'D'=>2,
+	'E'=>4,
+	'F'=>5,
+	'G'=>7,
+	'A'=>9,
+	'B'=>11,
+}
+
+KEYS={
+	'C'=>'',
+	'G'=>'F#',
+	'D'=>'F#C#',
+	'A'=>'F#C#G#',
+	'E'=>'F#C#G#D#',
+	'B'=>'F#C#G#D#A#',
+	'F'=>'B-',
+	'B-'=>'B-E-',
+	'E-'=>'B-E-A-',
+	'A-'=>'B-E-A-D-',
+	'D-'=>'B-E-A-D-G-',
+}
+
+FLATTING={
+	'C#'=>'D-',
+	'D#'=>'E-',
+	'E#'=>'F',
+	'F#'=>'G-',
+	'G#'=>'A-',
+	'A#'=>'B-',
+	'B#'=>'C',
+}
+
+def pitch_for_note(note)
+	fail unless note =~ /^([A-G])(\#?)(\d+)$/
+	PITCH_MAP[$1] + $2.size + $3.to_i*12
+end
+
+def key_fit(notes, signature)
+	flatting = !signature.index('-').nil?
+	notes.map{|note|
+		pitch = note.pitch[0..-2]
+		flatting ? (FLATTING[pitch]||pitch) : pitch
+	}.map{|pitch|
+		if pitch=~/[-#]/
+			#$stderr.puts "#{pitch} in #{signature}: #{signature.index(pitch)}"
+			signature.index(pitch) ? 0 : 1
+		else
+			signature.index(pitch) ? 1 : 0
+		end
+	}.sum
+end
+
+def best_key(notes)
+	KEYS.min_by{|key, signature|
+		key_fit(notes, signature)
+	}.first
+end
+
+def closest_beat(t, beats, fraction)
+	after = beats.index{|b| b > t}
+	before = after-1
+	before + ((t-beats[before])/(beats[after]-beats[before])*fraction).round.to_f/fraction
+end
+
+def pick_clef(notes)
+	middle_c = pitch_for_note("C5")
+	above = notes.count{|n| pitch_for_note(n.pitch) >= middle_c}
+	above > notes.size/2 ? "treble" : "bass"
+end
+
+notes = []
+beats = []
+note_count = Hash.new(0)
+
+title = ARGV.first.gsub(/^\d+ - /, '').gsub(/\.\w{2,3}$/, '')
+ARGF.each_line do |line|
+	if line =~ /^([A-G]\#?\d) \s+ (\d+\.\d+) \s+ (\d+\.\d+) \s+ (\d+)$/x
+		notes << Note.new($1, $2.to_f, $3.to_f, $4.to_i)
+		note_count[$1[0..-2]] += 1
+	elsif line =~ /^beat \s+ (\d+\.\d+)$/x
+		beats << $1.to_f
+	else
+		fail "syntax error: #{line.inspect}"
+	end
+end
+
+tracks = notes.map(&:track).uniq.sort
+
+$stderr.puts "#{notes.size} notes, #{beats.size} beats, tracks=#{tracks}"
+note_count.keys.sort_by{|note| pitch_for_note(note+"0")}.each do |pitch|
+	$stderr.puts "#{pitch}: #{note_count[pitch]}"
+end
+
+key = best_key(notes)
+$stderr.puts "best key: #{key} (#{KEYS[key]}) has #{key_fit(notes, KEYS[key])}/#{notes.size} missed"
+
+tempo = (beats.last - beats.first) / (beats.size - 1)
+tempo = (tempo*60).floor
+tempo = ((tempo/5.0).round*5).to_i
+$stderr.puts "Tempo: #{tempo}"
+
+# if notes before the first beat, add a 0 beat
+if notes.map(&:start).min < beats.first
+	beats.unshift 0
+end
+
+# if notes after the last beat, add a final beat
+if notes.map(&:start).max > beats.last
+	beats << (beats[-1] + (beats[-1]-beats[2]))
+end
+
+notes.each do |n|
+	n.beat = closest_beat(n.start, beats, QUANTIZE/4)
+end
+
+ly = Lilypond.new(4, key)
+ly.put_header(title)
+tracks.each_with_index do |t, idx|
+	track_notes = notes.select{|n| n.track == t}
+	ly.start_track(idx == 0, pick_clef(track_notes), tempo)
+	track_notes.each do |n|
+		ly.put_note(n)
+	end
+	ly.flush(beats.size)
+	ly.flush_rests(beats.size)
+	ly.end_track(idx == 0)
+end
+ly.put_footer
