@@ -15,8 +15,10 @@ class Lilypond
 		@timesig = timesig
 
 		@split_octave_up = pitch_for_note("C6")
-		@split_clef_up = pitch_for_note("E4")
-		@split_clef_down = pitch_for_note("A3")
+		@split_octave_stay_up = pitch_for_note("E5")
+		@split_clef_up = pitch_for_note("G4")
+		@split_clef_down = pitch_for_note("E3")
+		@split_octave_stay_down = pitch_for_note("A4")
 		@split_octave_down = pitch_for_note("C2")
 	end
 
@@ -180,15 +182,21 @@ class Lilypond
 		if pitches.all? {|p| p > @split_octave_up}
 			new_clef = "treble"
 			new_ottava = 1
-		elsif pitches.all? {|p| p > @split_clef_up}
+		elsif @ottava >= 1 && pitches.all? {|p| p >= @split_octave_stay_up}
+			new_clef = "treble"
+			new_ottava = 1
+		elsif pitches.any? {|p| p > @split_clef_up} && pitches.all? {|p| p > @split_clef_down}
 			new_clef = "treble"
 			new_ottava = 0
 		elsif pitches.all? {|p| p < @split_octave_down}
 			new_clef = "bass"
 			new_ottava = -1
-		elsif pitches.all? {|p| p < @split_clef_down}
+		elsif pitches.any? {|p| p < @split_clef_down} && pitches.all? {|p| p < @split_clef_up}
 			new_clef = "bass"
 			new_ottava = 0
+		elsif @ottava <= -1 && pitches.all? {|p| p <= @split_octave_stay_down}
+			new_clef = "bass"
+			new_ottava = -1
 		end
 
 		return new_clef, new_ottava
