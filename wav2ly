@@ -152,9 +152,11 @@ class Lilypond
 				gap, note_len = 0.5, "8"
 			when gap < 1
 				gap, note_len = 0.75, "8."
-			when gap < 2 || prev % 2 != 0
+			when gap < 1.5 || prev % 1 != 0  # off beat == quarter
 				gap, note_len = 1, "4"
-			when gap < 3 || prev % 4 != 0
+			when gap < 2 || prev % 2 != 0    # off halves == quarter (or less)
+				gap, note_len = 1.5, "4."
+			when gap < 3 || prev % 4 != 0    # whole and dotted half can only start a measure
 				gap, note_len = 2, "2"
 			when gap < 4
 				gap, note_len = 3, "2."
