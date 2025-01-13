@@ -296,7 +296,7 @@ while ARGV.first =~ /^--/
 	ARGV.shift
 end
 
-title = ARGV.first.gsub(/^\d+\s*-\s*/, '').gsub(/\.\w{2,3}$/, '').gsub('_', ' ')
+title = File.basename(ARGV.first).gsub(/^\d+(\s*-)?\s*/, '').gsub(/\.\w{2,3}$/, '').gsub('_', ' ')
 ARGF.each_line do |line|
 	if line =~ /^([A-G]\#?\d) \s+ (\d+\.\d+) \s+ (\d+\.\d+) \s+ (\d+)$/x
 		notes << Note.new($1, $2.to_f, $3.to_f, $4.to_i)
