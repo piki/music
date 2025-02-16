@@ -232,10 +232,10 @@ KEYS={
 	'E'=>'F#C#G#D#',
 	'B'=>'F#C#G#D#A#',
 	'F'=>'B-',
-	'B-'=>'B-E-',
-	'E-'=>'B-E-A-',
-	'A-'=>'B-E-A-D-',
-	'D-'=>'B-E-A-D-G-',
+	'Bf'=>'B-E-',
+	'Ef'=>'B-E-A-',
+	'Af'=>'B-E-A-D-',
+	'Df'=>'B-E-A-D-G-',
 }
 
 FLATTING={
