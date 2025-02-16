@@ -112,6 +112,10 @@ class Lilypond
 	end
 
 	def our_name(pitch)
+		flat = FLATTING[pitch[0..-2]]
+		if flat && KEYS[@key].index(flat)
+			pitch = flat + pitch[-1]
+		end
 		letter = pitch[0].downcase
 		mod = case pitch[1]
 			when '#'
