@@ -125,6 +125,7 @@ class Lilypond
 
 	def flush(now)
 		prev = @note_buffer.last.beat
+		desired_len = @note_buffer.map{|n| n.length}.max
 		new_clef, new_ottava = get_octave(@note_buffer)
 
 		if new_ottava && new_ottava.abs < @ottava.abs
@@ -156,7 +157,11 @@ class Lilypond
 			when gap < 1.5 || prev % 1 != 0  # off beat == quarter
 				gap, note_len = 1, "4"
 			when gap < 2 || prev % 2 != 0    # off halves == quarter (or less)
-				gap, note_len = 1.5, "4."
+				if desired_len <= 1
+					gap, note_len = 1, "4"
+				else
+					gap, note_len = 1.5, "4."
+				end
 			when gap < 3 || prev % 4 != 0    # whole and dotted half can only start a measure
 				gap, note_len = 2, "2"
 			when gap < 4
