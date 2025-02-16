@@ -323,7 +323,7 @@ end
 key = best_key(notes)
 $stderr.puts "best key: #{key} (#{KEYS[key]}) has #{key_fit(notes, KEYS[key])}/#{notes.size} missed"
 
-tempo = (beats.last - beats.first) / (beats.size - 1)
+tempo = (beats.size - 1) / (beats.last - beats.first)
 tempo = (tempo*60).floor
 tempo = ((tempo/5.0).round*5).to_i
 $stderr.puts "Tempo: #{tempo}"
