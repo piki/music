@@ -341,6 +341,10 @@ end
 notes.each do |n|
 	n.beat = closest_beat(n.start, beats, QUANTIZE/4)
 end
+first_beat = notes.map{|n| n.beat}.min.to_i
+notes.each do |n|
+	n.beat -= first_beat
+end
 
 ly = Lilypond.new(4, key)
 ly.put_header(title)
