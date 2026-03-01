@@ -1,5 +1,7 @@
 #!/usr/bin/ruby
 
+# FIXME: use note length instead of just guessing based on gap
+
 QUANTIZE=16  # 16th notes
 
 def detab(n, s)
